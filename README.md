@@ -30,6 +30,12 @@ II. Issues
         1.  The application was developed for an upcoming 1.0 version of Inkscape, which is in beta at the time of this writing. Unlike the previous versions, this one places the origin in the upper-left. The application doesn't support a lower-left origin.
 
         2.  The application doesn't handle grouped paths, so they need to be ungrouped in the input file first.
+        
+        3. This program has only been tested with units of inches. The document properties in Inkscape were set to:
+        
+            a.  Display units: inches
+            b.  Custom size: 11.5 x 11.5 inches
+            c.  Scale: 1.0
 
     B. Running the program
     
