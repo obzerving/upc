@@ -31,7 +31,9 @@ II. Issues
 
         2.  The application doesn't handle grouped paths, so they need to be ungrouped in the input file first.
         
-        3. This program has only been tested with units of inches. The document properties in Inkscape were set to:
+        3.  The input file has to be saved as a plain svg file and not an Inkscape svg format.
+        
+        4. This program has only been tested with units of inches. The document properties in Inkscape were set to:
         
             a.  Display units: inches
             b.  Custom size: 11.5 x 11.5 inches
