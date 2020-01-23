@@ -61,10 +61,12 @@ def main(argv):
    C1.pack(side = tkinter.LEFT)
 
    def InfileCallBack():
-      inputfile = tkinter.filedialog.askopenfilename()
+      ftypes = [('svg files','.svg'), ('All files','*')]
+      inputfile = tkinter.filedialog.askopenfilename(title = "Select File", filetypes = ftypes, defaultextension='.svg')
       E1.insert(0, inputfile)
    def OutfileCallBack():
-      outputfile = tkinter.filedialog.askopenfilename()
+      ftypes = [('svg files','.svg'), ('All files','*')]
+      outputfile = tkinter.filedialog.asksaveasfilename(title = "Save File As", filetypes = ftypes, defaultextension='.svg')
       E2.insert(0,outputfile)
    def CancelCallBack():
       top.destroy()
