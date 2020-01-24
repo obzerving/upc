@@ -22,6 +22,7 @@ outputfile = ''
 numpoly = 0
 dashlength = 0.25
 nohscores = 0
+tab_height = 0.4
 
 def main(argv):
    global inputfile
@@ -29,6 +30,7 @@ def main(argv):
    global numpoly
    global dashlength
    global nohscores
+   global tab_height
    
    top = tkinter.Tk()
    top.title("Universal Polygon Calculator")
@@ -53,9 +55,15 @@ def main(argv):
    F4 = Frame(pane)
    L4 = tkinter.Label(F4, text="Length of Dashline in inches (zero for solid line)")
    L4.pack( side = tkinter.LEFT)
-   E4 = tkinter.Entry(F4, bd =5, width=5)
-   E4.insert(0,'.175')
+   E4 = tkinter.Entry(F4, bd =5, width=6)
+   E4.insert(0,'0.175')
    E4.pack(side = tkinter.LEFT)
+   F4a = Frame(pane)
+   L4a = tkinter.Label(F4a, text="Height of Tab in inches")
+   L4a.pack( side = tkinter.LEFT)
+   E4a = tkinter.Entry(F4a, bd =5, width=6)
+   E4a.insert(0,'0.4')
+   E4a.pack(side = tkinter.LEFT)
    F5 = Frame(pane)
    toggleState = IntVar()
    C1 = Checkbutton(F5, text="Only place scorelines where there are Tabs", variable=toggleState)
@@ -77,10 +85,12 @@ def main(argv):
       global numpoly
       global dashlength
       global nohscores
+      global tab_height
       inputfile = E1.get()
       outputfile = E2.get()
       numpoly = int(E3.get())
       dashlength = float(E4.get())
+      tab_height = float(E4a.get())
       nohscores = toggleState.get()
       top.destroy()
    
@@ -111,6 +121,7 @@ def main(argv):
    pane.add(F2)
    pane.add(F3)
    pane.add(F4)
+   pane.add(F4a)
    pane.add(F5)
    pane.add(F6)
    top.mainloop()
@@ -332,7 +343,7 @@ def maketab(pt1, pt2, orientation):
    # orientation: up=1; down=-1; right=0
    # The assumption is that pt1x < pt2x for top and bottom tabs
    # and pt1y > pt2y for right hand tabs
-   tab_height = 0.4
+   global tab_height
    a = tab_height*math.tan(math.radians(35.0))
    xpt1t = pt1.real + a
    xpt2t = pt2.real - a
