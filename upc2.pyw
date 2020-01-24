@@ -15,6 +15,7 @@ import tkinter
 from tkinter import *
 import tkinter.filedialog
 import tkinter.font as font
+from tkinter import messagebox
 
 inputfile = ''
 outputfile = ''
@@ -224,9 +225,16 @@ def main(argv):
    for ia in isvg_attributes:
       if ((((ia != 'xmlns:dc') and  (ia != 'xmlns:cc')) and (ia != 'xmlns:rdf')) and (ia != 'xmlns:svg')):
          osvg_attributes[ia] = isvg_attributes[ia]
+   totalpaths = Path()
+   for tps in opaths:
+      totalpaths.append(tps)
+   xmin,xmax,ymin,ymax=totalpaths.bbox()
    # Write new paths, attributes, and svg_attributes to output file
    oattributes.append(iattributes[0])
    wsvg(opaths, attributes=oattributes, svg_attributes=osvg_attributes, filename=outputfile)
+   root = tkinter.Tk()
+   root.withdraw()
+   messagebox.showinfo("UPC", "width = "+str(xmax-xmin)+", height = "+str(ymax-ymin), parent=root)
 
 def makepoly(pt1, pt2, numpoly):
    # Assuming pt1 > pt2
