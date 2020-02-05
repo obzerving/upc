@@ -1,14 +1,26 @@
-################################
-#                              #
-# Universal Polygon Calculator #
-# Version 1.0                  #
-#                              #
-################################
-# Copyright: (c) 2020, Joseph Zakar <observing@gmail.com>
-# GNU General Public License v3.0+ (see LICENSE or https://tldrlegal.com/license/gnu-general-public-license-v3-(gpl-3)#fulltext)
+##################################################################################################################
+#                                                                                                                #
+# Universal Polygon Calculator                                                                                   #
+# Version 1.0                                                                                                    #
+#                                                                                                                #
+# This program generates an SVG file                                                                             #
+#   - Given an SVG file containing two paths representing the left and right profile of stacked n-sided polygons #
+#   - Generate a paper model of one of the n sides with tabs to assemble into a full 3D model                    #
+#   - Generate top and bottom lids for the generated model                                                       #
+#   - A wrapper to cover the generated model                                                                     #
+#                                                                                                                #
+# Copyright: (c) 2020, Joseph Zakar <observing@gmail.com>                                                        #
+# GNU General Public License v3.0+ (see LICENSE or                                                               #
+# https://tldrlegal.com/license/gnu-general-public-license-v3-(gpl-3)#fulltext)                                  #
+#                                                                                                                #
+##################################################################################################################
 
 # Init variables
 import sys
+import os
+import uuid
+from xml.dom.minidom import parse
+import xml.dom.minidom
 from svgpathtools import *
 import math
 import tkinter
@@ -17,12 +29,19 @@ import tkinter.filedialog
 import tkinter.font as font
 from tkinter import messagebox
 
+# user defaults
 inputfile = ''
 outputfile = ''
-numpoly = 0
+numpoly = 6
+tab_height = 0.4
 dashlength = 0.25
 nohscores = 0
-tab_height = 0.4
+
+# non-user defaults
+orientTop = 0
+orientBottom = 1
+orientRight = 2
+orientLeft = 3
 
 def main(argv):
    global inputfile
@@ -31,6 +50,10 @@ def main(argv):
    global dashlength
    global nohscores
    global tab_height
+   global orientTop
+   global orientBottom
+   global orientRight
+   global orientLeft
    
    top = tkinter.Tk()
    top.title("Universal Polygon Calculator")
@@ -50,35 +73,42 @@ def main(argv):
    L3 = tkinter.Label(F3, text="Number of Polygon Sides")
    L3.pack( side = tkinter.LEFT)
    E3 = tkinter.Entry(F3, bd =5, width=5)
-   E3.insert(0,'6')
+   E3.insert(0,str(numpoly))
    E3.pack(side = tkinter.LEFT)
    F4 = Frame(pane)
    L4 = tkinter.Label(F4, text="Length of Dashline in inches (zero for solid line)")
    L4.pack( side = tkinter.LEFT)
    E4 = tkinter.Entry(F4, bd =5, width=6)
-   E4.insert(0,'0.175')
+   E4.insert(0,str(dashlength))
    E4.pack(side = tkinter.LEFT)
    F4a = Frame(pane)
    L4a = tkinter.Label(F4a, text="Height of Tab in inches")
    L4a.pack( side = tkinter.LEFT)
    E4a = tkinter.Entry(F4a, bd =5, width=6)
-   E4a.insert(0,'0.4')
+   E4a.insert(0,str(tab_height))
    E4a.pack(side = tkinter.LEFT)
    F5 = Frame(pane)
    toggleState = IntVar()
    C1 = Checkbutton(F5, text="Only place scorelines where there are Tabs", variable=toggleState)
    C1.pack(side = tkinter.LEFT)
 
+   # This is the handler for the input file browse button
    def InfileCallBack():
       ftypes = [('svg files','.svg'), ('All files','*')]
       inputfile = tkinter.filedialog.askopenfilename(title = "Select File", filetypes = ftypes, defaultextension='.svg')
       E1.insert(0, inputfile)
+
+   # This is the handler for the output file browse button
    def OutfileCallBack():
       ftypes = [('svg files','.svg'), ('All files','*')]
       outputfile = tkinter.filedialog.asksaveasfilename(title = "Save File As", filetypes = ftypes, defaultextension='.svg')
       E2.insert(0,outputfile)
+
+   # This is the handler for the cancel button
    def CancelCallBack():
       top.destroy()
+
+   # This is the handler for the OK button
    def OKCallBack():
       global inputfile
       global outputfile
@@ -93,8 +123,8 @@ def main(argv):
       tab_height = float(E4a.get())
       nohscores = toggleState.get()
       top.destroy()
-   
-   axis = 1
+
+   axis = 1 # We are not implementing the 'reverse Y axis' option at this time
    lhs = 0
    rhs = 1
    lasty1 = 0.0
@@ -102,8 +132,8 @@ def main(argv):
    lasty2 = 0.0
    lastw2 = 0.0
    dscores = [] # temporary list of all score lines
-   opaths = []
-   oattributes = []
+   opaths = []  # all the generated paths will be stored in this list to write an SVG file
+   oattributes = [] # each path in opaths has a corresponding set of attributes in this list
    sattributes = {'style' : 'fill:none;stroke:#000000;stroke-width:0.01;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dashoffset:0;stroke-opacity:1'}
    B1 = tkinter.Button(F1, text="Browse", command=InfileCallBack)
    B1.pack(side = tkinter.LEFT)
@@ -126,24 +156,39 @@ def main(argv):
    pane.add(F6)
    top.mainloop()
    if axis == -1:
+      root = tkinter.Tk()
+      root.withdraw()
+      messagebox.showinfo('UPC Program Info', 'Orientation of Y Axis will be Reversed', parent=root)
       print('INFO: Orientation of Y axis is reversed')
    if inputfile == '':
+      root = tkinter.Tk()
+      root.withdraw()
+      messagebox.showerror('UPC Input Error', 'Input File is Required', parent=root)
       print('ERROR: Input file is required')
       sys.exit(5)
    if outputfile == '':
+      root = tkinter.Tk()
+      root.withdraw()
+      messagebox.showerror('UPC Input Error', 'Output File is Required', parent=root)
       print('ERROR: Output file is required')
       sys.exit(5)
    # Parse input file into paths, attributes, and svg_attributes
    ipaths, iattributes, isvg_attributes = svg2paths2(inputfile)
    ## Ensure there is only one pair of paths
    if len(ipaths) != 2:
+      root = tkinter.Tk()
+      root.withdraw()
+      messagebox.showerror('UPC Input Error', 'The input file should contain only two paths representing the left and right sides of the profile.', parent=root)
       print("The input file should contain only two paths representing the left and right sides of the model's profile.")
       sys.exit(3)
    ## NOTE: We are assuming that the order of nodes in one path corresponds to the same order of nodes in the other path (i.e same Y values)
    # Calculate center axis
    if ipaths[0][0][0].imag != ipaths[1][0][0].imag:
       # Y values are not the same. So much for our assumption
-      print("It doesn't look like the order of nodes in the left hand path corresponds to the same order in the right hand path.")
+      root = tkinter.Tk()
+      root.withdraw()
+      messagebox.showerror('UPC Input Error', 'The order of nodes in the left hand path needs to correspond to the same order in the right hand path.', parent=root)
+      print("The order of nodes in the left hand path does not correspond to the same order in the right hand path.")
       sys.exit(4)
    if ipaths[0][0][0].real > ipaths[1][0][0].real:
       # The second path is the left hand side
@@ -187,20 +232,20 @@ def main(argv):
          lastw2 = w2
    ## At this point, we can generate the top and bottom polygons
    ## r = sidelength/(2*sin(PI/numpoly))
-   opaths.append(makepoly(nrhs[0].real, nlhs[0].real, numpoly))
+   opaths.append(makepoly(nrhs[0].real - nlhs[0].real, numpoly))
    oattributes.append(iattributes[0])
-   opaths.append(makepoly(nrhs[-1].real, nlhs[-1].real, numpoly))
+   opaths.append(makepoly(nrhs[-1].real - nlhs[-1].real, numpoly))
    oattributes.append(iattributes[0])
    ## Reverse the order of rhs points so we can concatenate them with lhs
    nrhs.reverse()
    mpaths = makepath(nlhs, nrhs)
    opaths.append(mpaths)
    oattributes.append(iattributes[0])
-   # Create tabs for each line segment of right hand path if line segment > 1/4 inch
+   # Create tabs for each line segment of right hand path
    trhs = [nrhs[0]]
    for nodes in range(len(nrhs)-1):
       # Assuming that nodes are ordered in descending Y
-      tabpt1, tabpt2 = maketab(nrhs[nodes], nrhs[nodes+1], 0)
+      tabpt1, tabpt2 = makeTab(nrhs[nodes], nrhs[nodes+1], orientRight)
       trhs.append(tabpt1)
       trhs.append(tabpt2)
       trhs.append(nrhs[nodes+1])
@@ -213,13 +258,13 @@ def main(argv):
    ## put a tab and scoreline on the top
    spaths = makescore(nlhs[0], nrhs[-1],dashlength)
    dscores.append(spaths)
-   tabpt1, tabpt2 = maketab(nlhs[0], nrhs[-1], 1)
+   tabpt1, tabpt2 = makeTab(nlhs[0], nrhs[-1], orientTop)
    nrhs.append(tabpt2)
    nrhs.append(tabpt1)
    ## put a tab and scoreline on the bottom
    spaths = makescore(nlhs[-1], nrhs[0],dashlength)
    dscores.append(spaths)
-   tabpt1, tabpt2 = maketab(nlhs[-1], nrhs[0], -1)
+   tabpt1, tabpt2 = makeTab(nlhs[-1], nrhs[0], orientBottom)
    nlhs.append(tabpt1)
    nlhs.append(tabpt2)
    # Create the path for the shape
@@ -242,28 +287,96 @@ def main(argv):
    xmin,xmax,ymin,ymax=totalpaths.bbox()
    # Write new paths, attributes, and svg_attributes to output file
    oattributes.append(iattributes[0])
-   wsvg(opaths, attributes=oattributes, svg_attributes=osvg_attributes, filename=outputfile)
+   tmpfile = str(uuid.uuid4())
+   #wsvg(opaths, attributes=oattributes, svg_attributes=osvg_attributes, filename=tmpfile)
+   wsvg(opaths, filename=tmpfile, stroke_widths=[2,2,2,2,2])
+   # Post processing stage
+   # Due to issues with svgpathtools, some post processing of the file output from the library is necessary until issues have been resolved
+   # The following attributes are suitable for input to inkscape and/or the Cricut Design Space
+   # Document properties are 11.5 x 11.5 inches. The viewBox sets the scale at 72 dpi. Change the display units in Inkscape to inches.
+   docscale = 72
+   isvg_attributes = {'xmlns:dc': 'http://purl.org/dc/elements/1.1/', 'xmlns:cc': 'http://creativecommons.org/ns#', 'xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'xmlns:svg': 'http://www.w3.org/2000/svg', 'xmlns': 'http://www.w3.org/2000/svg', 'id': 'svg8', 'version': '1.1', 'viewBox': '0 0 828.0 828.0', 'height': '11.5in', 'width': '11.5in'}
+   # Assumes order of paths is top, bottom, wrapper, body, scorelines
+   ids = ['top','bottom','wrapper','body','scorelines']
+   # Read the xml tree from the file
+   DOMTree = xml.dom.minidom.parse(tmpfile)
+   # Accessing the svg node (which must be the root element)
+   svg =DOMTree.documentElement
+   # correct the height, width, and viewBox attributes
+   svg.setAttribute('height', isvg_attributes['height'])
+   svg.setAttribute('width', isvg_attributes['width'])
+   svg.setAttribute('viewBox', isvg_attributes['viewBox'])
+   # All path nodes under svg
+   paths = svg.getElementsByTagName("path")
+   wbbox = xmax-xmin
+   hbbox = ymax-ymin
+   strwidth = isvg_attributes['width']
+   if not(strwidth.isdigit()):
+      # For now, assume it is a two character unit at the end of the string
+      # TODO: Process the units field and modify paths accordingly
+      midbbox = (float(strwidth[:-2])-wbbox)/2 -xmin
+   else:
+      midbbox = (float(strwidth)-wbbox)/2 -xmin
+   strheight = isvg_attributes['height']
+   if not(strwidth.isdigit()):
+      # For now, assume it is a two character unit at the end of the string
+      # TODO: Process the units field and modify paths accordingly
+      centerbbox = (float(strheight[:-2])-hbbox)/2 -ymin
+   else:
+      centerbbox = (float(strheight)-hbbox)/2 -ymin
+   for p in range(len(paths)):
+      # Change paths to close with z rather than repeating first point
+      inodes = paths[p].getAttribute('d').split()
+      dstr = ''
+      firstpoint = ''
+      lastpoint = ''
+      rplcoord = 0
+      process = 1
+      for coord in range(len(inodes)):
+         if not((inodes[coord] == 'M') or (inodes[coord] == 'L')):
+            if firstpoint == '':
+               firstpoint = inodes[coord]
+            elif coord == len(inodes)-1: # check last point
+               if inodes[coord] == firstpoint: # does it repeat first point
+                  dstr = dstr + 'z' # yes. replace it with a z
+                  process = 0 # and stop processing
+               else:
+                  ipoint = inodes[coord].split(',')
+                  dstr = dstr + cstr + str((float(ipoint[0])+midbbox)*docscale) + ',' + str((float(ipoint[1])+centerbbox)*docscale) + ' '
+                  process = 0
+            if(process == 1):
+               ipoint = inodes[coord].split(',')
+               dstr = dstr + cstr + str((float(ipoint[0])+midbbox)*docscale) + ',' + str((float(ipoint[1])+centerbbox)*docscale) + ' '
+            else:
+               paths[p].setAttribute('d', dstr) # and replace the path
+         else:
+            cstr = inodes[coord] + ' '
+      # Update the path ids to something more meaningful
+      paths[p].setAttribute('id',ids[p])
+   with open(outputfile,'w') as xml_file:
+      DOMTree.writexml(xml_file, indent="\t", newl="\n")
+   try:
+      os.remove(tmpfile)
+   except OSError:
+      pass   
    root = tkinter.Tk()
    root.withdraw()
-   messagebox.showinfo("UPC", "width = "+str(xmax-xmin)+", height = "+str(ymax-ymin), parent=root)
+   messagebox.showinfo("UPC", "width = "+str(round(xmax-xmin,3))+", height = "+str(round(ymax-ymin,3)), parent=root)
 
-def makepoly(pt1, pt2, numpoly):
-   # Assuming pt1 > pt2
-   toplength = pt1 - pt2
-   r = toplength/(2*math.sin(math.pi/numpoly))
+def makepoly(sidelength, numpoly):
+   # Returns a numpoly-sided polygon whose side length is sidelength as a closed path
+   r = sidelength/(2*math.sin(math.pi/numpoly))
    pstr = 'M'
    for ppoint in range(0,numpoly):
       xn = r*math.cos(2*math.pi*ppoint/numpoly)
       yn = r*math.sin(2*math.pi*ppoint/numpoly)
       pstr = pstr + ' ' + str(xn) + ',' + str(yn)
-      if ppoint == 0:
-         x0 = xn
-         y0 = yn
-   pstr = pstr + ' ' + str(x0) + ',' + str(y0)
+   pstr = pstr + ' z' # Close the path
    ppaths = parse_path(pstr)
    return ppaths
 
 def makescore(pt1, pt2, dashlength):
+   # Draws a dashed line of dashlength between complex points
    # Assuming pt1y > pt2y
    # Dash = dashlength (in inches) space followed by dashlength mark
    # if dashlength is zero, we want a solid line
@@ -295,9 +408,9 @@ def makescore(pt1, pt2, dashlength):
          while not(done):
             if(ypt - dashlength*2) >= ycushion:
                ypt = ypt - dashlength         
-               ddash = ddash + 'M ' + str(xpt) + ' ' + str(ypt) + ' '
+               ddash = ddash + 'M ' + str(xpt) + ',' + str(ypt) + ' '
                ypt = ypt - dashlength
-               ddash = ddash + 'L ' + str(xpt) + ' ' + str(ypt) + ' '
+               ddash = ddash + 'L ' + str(xpt) + ',' + str(ypt) + ' '
             else:
                done = True
       else:
@@ -318,74 +431,120 @@ def makescore(pt1, pt2, dashlength):
                # move to end of space / beginning of mark
                xpt = xpt - msign*dashlength*math.cos(theta)
                ypt = ypt - msign*dashlength*math.sin(theta)
-               ddash = ddash + 'M ' + str(xpt) + ' ' + str(ypt) + ' '
+               ddash = ddash + 'M ' + str(xpt) + ',' + str(ypt) + ' '
                # draw the mark
                xpt = xpt - msign*dashlength*math.cos(theta)
                ypt = ypt - msign*dashlength*math.sin(theta)
-               ddash = ddash + 'L' + str(xpt) + ' ' + str(ypt) + ' '
+               ddash = ddash + 'L' + str(xpt) + ',' + str(ypt) + ' '
             else:
                done = True
    return ddash
 
 def makepath(lhs,rhs):
-   ## Now we can concatenate the lhs with the rhs
+   ## Concatenate the lhs with the rhs and turn it into a closed path
    ishape = lhs + rhs
    ## Build d property from points
    dprop = 'M'
    for nodes in range(len(ishape)):
       dprop = dprop + ' ' + str(ishape[nodes].real) + ',' + str(ishape[nodes].imag)
    ## and close the path
-   dprop = dprop + ' ' + str(ishape[0].real) + ',' + str(ishape[0].imag)
+   dprop = dprop + ' z'
    dpaths = parse_path(dprop)
    return dpaths
 
-def maketab(pt1, pt2, orientation):
-   # orientation: up=1; down=-1; right=0
-   # The assumption is that pt1x < pt2x for top and bottom tabs
-   # and pt1y > pt2y for right hand tabs
+def makeTab(pt1, pt2, orient):
+   # Generates two points betwee pt1 and pt2 that form a tab shape with orient orientation
+   global orientTop
+   global orientBottom
+   global orientRight
+   global orientLeft
    global tab_height
-   a = tab_height*math.tan(math.radians(35.0))
-   xpt1t = pt1.real + a
-   xpt2t = pt2.real - a
-   if orientation == 1:
-      ypt1t = pt1.imag - tab_height
-      ypt2t = pt2.imag - tab_height
-   elif orientation == -1:
-      ypt1t = pt1.imag + tab_height
-      ypt2t = pt2.imag + tab_height
-   else:
-      if pt1.real == pt2.real:
-         # we have a vertical line
-         ypt1t = pt1.imag - a
-         ypt2t = pt2.imag + a
-         xpt1t = pt1.real + tab_height
-         xpt2t = pt2.real + tab_height
+   tab_angle = 25.0
+   switched = 0
+   rpt1x = rpt1y = rpt2x = rpt2y = 0.0
+   # We might need to switch pt1 and pt2 depending on the orientation of the tab
+   if (orient == orientTop) or (orient == orientBottom):
+      if pt1.real > pt2.real:
+         ppt1 = pt2
+         ppt2 = pt1
+         switched = 1
       else:
-         # We need to rotate the points
-         m=(pt1.imag-pt2.imag)/(pt1.real-pt2.real)
-         msign = (m>0) - (m<0)
-         theta = math.atan(m)
-         yp1 = (pt1.imag + tab_height) - pt1.imag
-         yp2 = (pt2.imag + tab_height) - pt2.imag
-         xp1 = xpt1t - pt1.real
-         xp2 = xpt2t - pt2.real
-         if m > 0:
-            # pt1t is rotated theta degrees around pt1
-            xpt1t = -xp1*math.cos(theta) + yp1*math.sin(theta) +pt1.real
-            ypt1t = -yp1*math.cos(theta) - xp1*math.sin(theta) +pt1.imag
-            # pt2t is rotated theta degrees around pt2
-            xpt2t = -xp2*math.cos(theta) + yp2*math.sin(theta) +pt2.real
-            ypt2t = -yp2*math.cos(theta) - xp2*math.sin(theta) +pt2.imag
-         else:
-            # pt1t is rotated theta degrees around pt1
-            xpt1t = +xp1*math.cos(theta) - yp1*math.sin(theta) +pt1.real
-            ypt1t = +yp1*math.cos(theta) + xp1*math.sin(theta) +pt1.imag
-            # pt2t is rotated theta degrees around pt2
-            xpt2t = xp2*math.cos(theta) - yp2*math.sin(theta) +pt2.real
-            ypt2t = +yp2*math.cos(theta) + xp2*math.sin(theta) +pt2.imag
-   pt1t = complex(xpt1t, ypt1t)
-   pt2t = complex(xpt2t, ypt2t)
-   return pt1t, pt2t
+         ppt1 = pt1
+         ppt2 = pt2
+      if orient == orientTop:
+         tp1 = complex(0, -tab_height) 
+         tp2 = complex(0, -tab_height)
+         rtp1x = tp1.real*math.cos(math.radians(tab_angle)) - tp1.imag*math.sin(math.radians(tab_angle)) + ppt1.real
+         rtp1y = tp1.imag*math.cos(math.radians(tab_angle)) + tp1.real*math.sin(math.radians(tab_angle)) + ppt1.imag
+         rtp2x = tp2.real*math.cos(math.radians(-tab_angle)) - tp2.imag*math.sin(math.radians(-tab_angle)) + ppt2.real
+         rtp2y = tp2.imag*math.cos(math.radians(-tab_angle)) + tp2.real*math.sin(math.radians(-tab_angle)) + ppt2.imag
+      elif orient == orientBottom:
+         tp1 = complex(0, tab_height) 
+         tp2 = complex(0, tab_height)
+         rtp1x = tp1.real*math.cos(math.radians(-tab_angle)) - tp1.imag*math.sin(math.radians(-tab_angle)) + ppt1.real
+         rtp1y = tp1.imag*math.cos(math.radians(-tab_angle)) + tp1.real*math.sin(math.radians(-tab_angle)) + ppt1.imag
+         rtp2x = tp2.real*math.cos(math.radians(tab_angle)) - tp2.imag*math.sin(math.radians(tab_angle)) + ppt2.real
+         rtp2y = tp2.imag*math.cos(math.radians(tab_angle)) + tp2.real*math.sin(math.radians(tab_angle)) + ppt2.imag
+   elif (orient == orientRight) or (orient == orientLeft):
+      if pt1.imag < pt2.imag:
+         ppt1 = pt2
+         ppt2 = pt1
+         switched = 1
+      else:
+         ppt1 = pt1
+         ppt2 = pt2
+      if orient == orientRight:
+         tp1 = complex(tab_height, 0)
+         tp2 = complex(tab_height, 0)
+         rtp1x = tp1.real*math.cos(math.radians(-tab_angle)) - tp1.imag*math.sin(math.radians(-tab_angle)) + ppt1.real
+         rtp1y = tp1.imag*math.cos(math.radians(-tab_angle)) + tp1.real*math.sin(math.radians(-tab_angle)) + ppt1.imag
+         rtp2x = tp2.real*math.cos(math.radians(+tab_angle)) - tp2.imag*math.sin(math.radians(tab_angle)) + ppt2.real
+         rtp2y = tp2.imag*math.cos(math.radians(tab_angle)) + tp2.real*math.sin(math.radians(tab_angle)) + ppt2.imag
+      else: # orient == orientLeft
+         tp1 = complex(-tab_height, 0)
+         tp2 = complex(-tab_height, 0)
+         rtp1x = tp1.real*math.cos(math.radians(tab_angle)) - tp1.imag*math.sin(math.radians(tab_angle)) + ppt1.real
+         rtp1y = tp1.imag*math.cos(math.radians(tab_angle)) + tp1.real*math.sin(math.radians(tab_angle)) + ppt1.imag
+         rtp2x = tp2.real*math.cos(math.radians(-tab_angle)) - tp2.imag*math.sin(math.radians(-tab_angle)) + ppt2.real
+         rtp2y = tp2.imag*math.cos(math.radians(-tab_angle)) + tp2.real*math.sin(math.radians(-tab_angle)) + ppt2.imag
+      # Check for vertical line. If so, we are already done
+      if (ppt1.real != ppt2.real):
+         slope = (ppt1.imag - ppt2.imag)/(ppt1.real - ppt2.real)
+         theta = math.degrees(math.atan(slope))
+         # create a line segment from ppt1 to rtp1
+         td1 = 'M '+str(ppt1.real)+','+str(ppt1.imag)+' '+str(rtp1x)+','+str(rtp1y)
+         rrtp1 = parse_path(td1)
+         # create a line segment from ppt2 to rtp2
+         td2 = 'M '+str(ppt2.real)+','+str(ppt2.imag)+' '+str(rtp2x)+','+str(rtp2y)
+         rrtp2 = parse_path(td2)
+         if orient == orientRight:
+            # rotate the points theta degrees
+            if slope < 0:
+               rtp1 = rrtp1.rotated(90+theta, ppt1)
+               rtp2 = rrtp2.rotated(90+theta, ppt2)
+            else:
+               rtp1 = rrtp1.rotated(-90+theta, ppt1)
+               rtp2 = rrtp2.rotated(-90+theta, ppt2)
+         if orient == orientLeft:
+            # rotate the points theta degrees
+            if slope < 0:
+               rtp1 = rrtp1.rotated(90+theta, ppt1)
+               rtp2 = rrtp2.rotated(90+theta, ppt2)
+            else:
+               rtp1 = rrtp1.rotated(-90+theta, ppt1)
+               rtp2 = rrtp2.rotated(-90+theta, ppt2)
+         rtp1x = rtp1[0][1].real
+         rtp1y = rtp1[0][1].imag
+         rtp2x = rtp2[0][1].real
+         rtp2y = rtp2[0][1].imag
+
+   p1 = complex(rtp1x,rtp1y)
+   p2 = complex(rtp2x,rtp2y)
+   if switched == 0:
+      return p1, p2
+   else:
+      return p2, p1
+
 # Clean up
 if __name__ == "__main__":
    main(sys.argv[1:])# Ensure that arguments are valid

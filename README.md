@@ -37,7 +37,7 @@ II. Issues
         
             a.  Display units: inches
             b.  Custom size: 11.5 x 11.5 inches
-            c.  Scale: 1.0
+            c.  ViewBox: 0 0 828.0 828.0 (which gives a scale of 72)
 
     B. Running the program
     
