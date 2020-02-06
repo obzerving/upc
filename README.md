@@ -33,7 +33,13 @@ II. Issues
         
         3.  The input file has to be saved as a plain svg file and not an Inkscape svg format.
         
-        4. This program has only been tested with units of inches. The document properties in Inkscape were set to:
+        4. This program currently supports only units of inches. The input document's properties for Inkscape need to be:
+
+            a.  Display units: inches
+            b.  Custom size: 11.5 x 11.5 inches
+            c.  ViewBox: 0 0 11.5 11.5 (which gives a scale of 1)
+
+        To make the output document compatible with Cricut, the properties for Inkscape will be set to:
         
             a.  Display units: inches
             b.  Custom size: 11.5 x 11.5 inches
