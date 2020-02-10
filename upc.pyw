@@ -42,6 +42,7 @@ orientTop = 0
 orientBottom = 1
 orientRight = 2
 orientLeft = 3
+tab_angle = 25.0
 
 def main(argv):
    global inputfile
@@ -54,6 +55,7 @@ def main(argv):
    global orientBottom
    global orientRight
    global orientLeft
+   global tab_angle
    
    top = tkinter.Tk()
    top.title("Universal Polygon Calculator")
@@ -134,7 +136,12 @@ def main(argv):
    dscores = [] # temporary list of all score lines
    opaths = []  # all the generated paths will be stored in this list to write an SVG file
    oattributes = [] # each path in opaths has a corresponding set of attributes in this list
-   sattributes = {'style' : 'fill:none;stroke:#000000;stroke-width:0.01;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dashoffset:0;stroke-opacity:1'}
+   # attributes for body, top, and bottom
+   battributes = {'style' : 'fill:#32c864;stroke:#000000;stroke-width:0.96;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dashoffset:0;stroke-opacity:1'}
+   # attributes for wrapper
+   wattributes = {'style' : 'fill:#6432c8;stroke:#000000;stroke-width:0.96;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dashoffset:0;stroke-opacity:1'}
+   # attributes for scorelines
+   sattributes = {'style' : 'fill:none;stroke:#000000;stroke-width:0.96;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dashoffset:0;stroke-opacity:1'}
    B1 = tkinter.Button(F1, text="Browse", command=InfileCallBack)
    B1.pack(side = tkinter.LEFT)
    B2 = tkinter.Button(F2, text="Browse", command=OutfileCallBack)
@@ -174,6 +181,19 @@ def main(argv):
       sys.exit(5)
    # Parse input file into paths, attributes, and svg_attributes
    ipaths, iattributes, isvg_attributes = svg2paths2(inputfile)
+   # determine the units and the scale of the input file
+   # Check the units to see if we support them
+   hwunits = isvg_attributes['height'][-2:]
+   if(hwunits != 'in'):
+      root = tkinter.Tk()
+      root.withdraw()
+      messagebox.showerror('UPC Input Error', 'Document Units Must be in Inches', parent=root)
+      sys.exit(6)
+   inheight = float(isvg_attributes['height'][:-2])
+   inwidth = float(isvg_attributes['width'][:-2])
+   invb = isvg_attributes['viewBox'].split()
+   # Assumes X and Y scales are equal
+   inscale = inwidth/float(invb[2])
    ## Ensure there is only one pair of paths
    if len(ipaths) != 2:
       root = tkinter.Tk()
@@ -183,8 +203,8 @@ def main(argv):
       sys.exit(3)
    ## NOTE: We are assuming that the order of nodes in one path corresponds to the same order of nodes in the other path (i.e same Y values)
    # Calculate center axis
-   if ipaths[0][0][0].imag != ipaths[1][0][0].imag:
-      # Y values are not the same. So much for our assumption
+   if round(ipaths[0][0][0].imag,5) != round(ipaths[1][0][0].imag,5):
+      # Y values are not the same (to fifth decimal place). So much for our assumption
       root = tkinter.Tk()
       root.withdraw()
       messagebox.showerror('UPC Input Error', 'The order of nodes in the left hand path needs to correspond to the same order in the right hand path.', parent=root)
@@ -194,7 +214,7 @@ def main(argv):
       # The second path is the left hand side
       lhs = 1
       rhs = 0
-   xcenter = ipaths[lhs][0][0].real + (ipaths[rhs][0][0].real - ipaths[lhs][0][0].real)/2.0
+   xcenter = (ipaths[lhs][0][0].real + (ipaths[rhs][0][0].real - ipaths[lhs][0][0].real)/2.0)*inscale
    # Calculate points / line segments
    nlhs = []
    nrhs =[]
@@ -205,8 +225,8 @@ def main(argv):
       if not((inodes[coord] == 'M') or (inodes[coord] == 'L')): ## Skip over M and L
          ## Find the distance between corresponding nodes and their Y position
          ipoint = inodes[coord].split(',')
-         w1 = (xcenter - float(ipoint[0]))*2.0
-         y1 = float(ipoint[1])
+         w1 = (xcenter - float(ipoint[0])*inscale)*2.0
+         y1 = float(ipoint[1])*inscale
          ## Recalculate new distance (width of one polygon side) and new Y position
          w2 = w1*math.sin(math.pi/numpoly) * (1-(numpoly%2)) + ((0.5*w1)/math.cos(math.radians((360/numpoly)/2))) * (numpoly%2)
          if firstpoint == 0:
@@ -232,15 +252,15 @@ def main(argv):
          lastw2 = w2
    ## At this point, we can generate the top and bottom polygons
    ## r = sidelength/(2*sin(PI/numpoly))
-   opaths.append(makepoly(nrhs[0].real - nlhs[0].real, numpoly))
-   oattributes.append(iattributes[0])
    opaths.append(makepoly(nrhs[-1].real - nlhs[-1].real, numpoly))
-   oattributes.append(iattributes[0])
+   oattributes.append(battributes)
+   opaths.append(makepoly(nrhs[0].real - nlhs[0].real, numpoly))
+   oattributes.append(battributes)
    ## Reverse the order of rhs points so we can concatenate them with lhs
    nrhs.reverse()
    mpaths = makepath(nlhs, nrhs)
    opaths.append(mpaths)
-   oattributes.append(iattributes[0])
+   oattributes.append(wattributes)
    # Create tabs for each line segment of right hand path
    trhs = [nrhs[0]]
    for nodes in range(len(nrhs)-1):
@@ -270,13 +290,13 @@ def main(argv):
    # Create the path for the shape
    outpath = makepath(nlhs, nrhs)
    opaths.append(outpath)
-   oattributes.append(iattributes[0])
+   oattributes.append(battributes)
    # lump together all the score lines into one path
    slist = ''
    for dndx in dscores:
       slist = slist + dndx
    opaths.append(parse_path(slist))
-   oattributes.append(iattributes[0])
+   oattributes.append(sattributes)
    osvg_attributes = {}
    for ia in isvg_attributes:
       if ((((ia != 'xmlns:dc') and  (ia != 'xmlns:cc')) and (ia != 'xmlns:rdf')) and (ia != 'xmlns:svg')):
@@ -286,10 +306,10 @@ def main(argv):
       totalpaths.append(tps)
    xmin,xmax,ymin,ymax=totalpaths.bbox()
    # Write new paths, attributes, and svg_attributes to output file
-   oattributes.append(iattributes[0])
+   #oattributes.append(iattributes[0])
    tmpfile = str(uuid.uuid4())
    #wsvg(opaths, attributes=oattributes, svg_attributes=osvg_attributes, filename=tmpfile)
-   wsvg(opaths, filename=tmpfile, stroke_widths=[2,2,2,2,2])
+   wsvg(opaths, filename=tmpfile, attributes=oattributes)
    # Post processing stage
    # Due to issues with svgpathtools, some post processing of the file output from the library is necessary until issues have been resolved
    # The following attributes are suitable for input to inkscape and/or the Cricut Design Space
@@ -453,91 +473,94 @@ def makepath(lhs,rhs):
    return dpaths
 
 def makeTab(pt1, pt2, orient):
-   # Generates two points betwee pt1 and pt2 that form a tab shape with orient orientation
    global orientTop
    global orientBottom
    global orientRight
    global orientLeft
    global tab_height
-   tab_angle = 25.0
+   global tab_angle
    switched = 0
    rpt1x = rpt1y = rpt2x = rpt2y = 0.0
-   # We might need to switch pt1 and pt2 depending on the orientation of the tab
-   if (orient == orientTop) or (orient == orientBottom):
-      if pt1.real > pt2.real:
-         ppt1 = pt2
-         ppt2 = pt1
-         switched = 1
-      else:
-         ppt1 = pt1
-         ppt2 = pt2
-      if orient == orientTop:
-         tp1 = complex(0, -tab_height) 
-         tp2 = complex(0, -tab_height)
-         rtp1x = tp1.real*math.cos(math.radians(tab_angle)) - tp1.imag*math.sin(math.radians(tab_angle)) + ppt1.real
-         rtp1y = tp1.imag*math.cos(math.radians(tab_angle)) + tp1.real*math.sin(math.radians(tab_angle)) + ppt1.imag
-         rtp2x = tp2.real*math.cos(math.radians(-tab_angle)) - tp2.imag*math.sin(math.radians(-tab_angle)) + ppt2.real
-         rtp2y = tp2.imag*math.cos(math.radians(-tab_angle)) + tp2.real*math.sin(math.radians(-tab_angle)) + ppt2.imag
-      elif orient == orientBottom:
-         tp1 = complex(0, tab_height) 
-         tp2 = complex(0, tab_height)
-         rtp1x = tp1.real*math.cos(math.radians(-tab_angle)) - tp1.imag*math.sin(math.radians(-tab_angle)) + ppt1.real
-         rtp1y = tp1.imag*math.cos(math.radians(-tab_angle)) + tp1.real*math.sin(math.radians(-tab_angle)) + ppt1.imag
-         rtp2x = tp2.real*math.cos(math.radians(tab_angle)) - tp2.imag*math.sin(math.radians(tab_angle)) + ppt2.real
-         rtp2y = tp2.imag*math.cos(math.radians(tab_angle)) + tp2.real*math.sin(math.radians(tab_angle)) + ppt2.imag
-   elif (orient == orientRight) or (orient == orientLeft):
-      if pt1.imag < pt2.imag:
-         ppt1 = pt2
-         ppt2 = pt1
-         switched = 1
-      else:
-         ppt1 = pt1
-         ppt2 = pt2
-      if orient == orientRight:
-         tp1 = complex(tab_height, 0)
-         tp2 = complex(tab_height, 0)
-         rtp1x = tp1.real*math.cos(math.radians(-tab_angle)) - tp1.imag*math.sin(math.radians(-tab_angle)) + ppt1.real
-         rtp1y = tp1.imag*math.cos(math.radians(-tab_angle)) + tp1.real*math.sin(math.radians(-tab_angle)) + ppt1.imag
-         rtp2x = tp2.real*math.cos(math.radians(+tab_angle)) - tp2.imag*math.sin(math.radians(tab_angle)) + ppt2.real
-         rtp2y = tp2.imag*math.cos(math.radians(tab_angle)) + tp2.real*math.sin(math.radians(tab_angle)) + ppt2.imag
-      else: # orient == orientLeft
-         tp1 = complex(-tab_height, 0)
-         tp2 = complex(-tab_height, 0)
-         rtp1x = tp1.real*math.cos(math.radians(tab_angle)) - tp1.imag*math.sin(math.radians(tab_angle)) + ppt1.real
-         rtp1y = tp1.imag*math.cos(math.radians(tab_angle)) + tp1.real*math.sin(math.radians(tab_angle)) + ppt1.imag
-         rtp2x = tp2.real*math.cos(math.radians(-tab_angle)) - tp2.imag*math.sin(math.radians(-tab_angle)) + ppt2.real
-         rtp2y = tp2.imag*math.cos(math.radians(-tab_angle)) + tp2.real*math.sin(math.radians(-tab_angle)) + ppt2.imag
-      # Check for vertical line. If so, we are already done
-      if (ppt1.real != ppt2.real):
-         slope = (ppt1.imag - ppt2.imag)/(ppt1.real - ppt2.real)
-         theta = math.degrees(math.atan(slope))
-         # create a line segment from ppt1 to rtp1
-         td1 = 'M '+str(ppt1.real)+','+str(ppt1.imag)+' '+str(rtp1x)+','+str(rtp1y)
-         rrtp1 = parse_path(td1)
-         # create a line segment from ppt2 to rtp2
-         td2 = 'M '+str(ppt2.real)+','+str(ppt2.imag)+' '+str(rtp2x)+','+str(rtp2y)
-         rrtp2 = parse_path(td2)
+   tabDone = False
+   currTabHt = tab_height
+   currTabAngle = tab_angle
+   while not tabDone:
+      if (orient == orientTop) or (orient == orientBottom):
+         if pt1.real > pt2.real:
+            ppt1 = pt2
+            ppt2 = pt1
+            switched = 1
+         else:
+            ppt1 = pt1
+            ppt2 = pt2
+         if orient == orientTop:
+            TBset = -1
+         elif orient == orientBottom:
+            TBset = 1
+         tp1 = complex(0, TBset*currTabHt) 
+         tp2 = complex(0, TBset*currTabHt)
+         rtp1x = tp1.real*math.cos(math.radians(-TBset*currTabAngle)) - tp1.imag*math.sin(math.radians(-TBset*currTabAngle)) + ppt1.real
+         rtp1y = tp1.imag*math.cos(math.radians(-TBset*currTabAngle)) + tp1.real*math.sin(math.radians(-TBset*currTabAngle)) + ppt1.imag
+         rtp2x = tp2.real*math.cos(math.radians(TBset*currTabAngle)) - tp2.imag*math.sin(math.radians(TBset*currTabAngle)) + ppt2.real
+         rtp2y = tp2.imag*math.cos(math.radians(TBset*currTabAngle)) + tp2.real*math.sin(math.radians(TBset*currTabAngle)) + ppt2.imag
+      elif (orient == orientRight) or (orient == orientLeft):
+         if pt1.imag < pt2.imag:
+            ppt1 = pt2
+            ppt2 = pt1
+            switched = 1
+         else:
+            ppt1 = pt1
+            ppt2 = pt2
          if orient == orientRight:
-            # rotate the points theta degrees
-            if slope < 0:
-               rtp1 = rrtp1.rotated(90+theta, ppt1)
-               rtp2 = rrtp2.rotated(90+theta, ppt2)
-            else:
-               rtp1 = rrtp1.rotated(-90+theta, ppt1)
-               rtp2 = rrtp2.rotated(-90+theta, ppt2)
-         if orient == orientLeft:
-            # rotate the points theta degrees
-            if slope < 0:
-               rtp1 = rrtp1.rotated(90+theta, ppt1)
-               rtp2 = rrtp2.rotated(90+theta, ppt2)
-            else:
-               rtp1 = rrtp1.rotated(-90+theta, ppt1)
-               rtp2 = rrtp2.rotated(-90+theta, ppt2)
-         rtp1x = rtp1[0][1].real
-         rtp1y = rtp1[0][1].imag
-         rtp2x = rtp2[0][1].real
-         rtp2y = rtp2[0][1].imag
-
+            TBset = -1
+         else: # orient == orientLeft
+            TBset = 1
+         tp1 = complex(-TBset*currTabHt, 0)
+         tp2 = complex(-TBset*currTabHt, 0)
+         rtp1x = tp1.real*math.cos(math.radians(TBset*currTabAngle)) - tp1.imag*math.sin(math.radians(TBset*currTabAngle)) + ppt1.real
+         rtp1y = tp1.imag*math.cos(math.radians(TBset*currTabAngle)) + tp1.real*math.sin(math.radians(TBset*currTabAngle)) + ppt1.imag
+         rtp2x = tp2.real*math.cos(math.radians(-TBset*currTabAngle)) - tp2.imag*math.sin(math.radians(-TBset*currTabAngle)) + ppt2.real
+         rtp2y = tp2.imag*math.cos(math.radians(-TBset*currTabAngle)) + tp2.real*math.sin(math.radians(-TBset*currTabAngle)) + ppt2.imag
+         # Check for vertical line. If so, we are already done
+         if (ppt1.real != ppt2.real):
+            slope = (ppt1.imag - ppt2.imag)/(ppt1.real - ppt2.real)
+            theta = math.degrees(math.atan(slope))
+            # create a line segment from ppt1 to rtp1
+            td1 = 'M '+str(ppt1.real)+' '+str(ppt1.imag)+' '+str(rtp1x)+' '+str(rtp1y)
+            rrtp1 = parse_path(td1)
+            # create a line segment from ppt2 to rtp2
+            td2 = 'M '+str(ppt2.real)+' '+str(ppt2.imag)+' '+str(rtp2x)+' '+str(rtp2y)
+            rrtp2 = parse_path(td2)
+            if orient == orientRight:
+               # rotate the points theta degrees
+               if slope < 0:
+                  rtp1 = rrtp1.rotated(90+theta, ppt1)
+                  rtp2 = rrtp2.rotated(90+theta, ppt2)
+               else:
+                  rtp1 = rrtp1.rotated(-90+theta, ppt1)
+                  rtp2 = rrtp2.rotated(-90+theta, ppt2)
+            if orient == orientLeft:
+               # rotate the points theta degrees
+               if slope < 0:
+                  rtp1 = rrtp1.rotated(90+theta, ppt1)
+                  rtp2 = rrtp2.rotated(90+theta, ppt2)
+               else:
+                  rtp1 = rrtp1.rotated(-90+theta, ppt1)
+                  rtp2 = rrtp2.rotated(-90+theta, ppt2)
+            rtp1x = rtp1[0][1].real
+            rtp1y = rtp1[0][1].imag
+            rtp2x = rtp2[0][1].real
+            rtp2y = rtp2[0][1].imag
+      print('Testing: '+str(ppt1.real)+','+str(ppt1.imag)+' '+str(rtp1x)+','+str(rtp1y)+' '+str(rtp2x)+','+str(rtp2y)+' '+str(ppt2.real)+','+str(ppt2.imag))
+      if detectIntersect(ppt1.real, ppt1.imag, rtp1x, rtp1y, ppt2.real, ppt2.imag, rtp2x, rtp2y):
+         print('Intersect: '+str(currTabAngle)+' degrees, '+str(currTabHt)+' inches, orientation '+str(orient))
+         currTabAngle = currTabAngle - 1.0
+         if currTabAngle < 2.0:
+            currTabHt = currTabHt - 0.1
+            currTabAngle = tab_angle
+      else:
+         print('No Intersect: '+str(currTabAngle)+' degrees, '+str(currTabHt)+' inches, orientation '+str(orient))
+         tabDone = True
    p1 = complex(rtp1x,rtp1y)
    p2 = complex(rtp2x,rtp2y)
    if switched == 0:
@@ -545,6 +568,17 @@ def makeTab(pt1, pt2, orient):
    else:
       return p2, p1
 
+def detectIntersect(x1, y1, x2, y2, x3, y3, x4, y4):
+   td = (x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)
+   if td == 0:
+      # These line segments are parallel
+      return false
+   t = ((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/td
+   if (0.0 <= t) and (t <= 1.0):
+      return True
+   else:
+      return False
+      
 # Clean up
 if __name__ == "__main__":
    main(sys.argv[1:])# Ensure that arguments are valid
