@@ -1,46 +1,6 @@
 # upc
  A Universal Polygon Calculator for polygonal paper models
 
-These are specific notes for running the upc application, which reads an svg file created by Inkscape containing paths describing a multi-sided polygonal figure.
+Using Inkscape 1 (beta or higher) you create an .svg file that has two paths that outline silhouette of a simple vase-like shape.  upc.pyw used this file as input and  creates an .svg file  that contains the paths for the shapes necessary to construct the 3d structure,  using polygons.
 
-I. Setting up the environment
-
-    A. Install Python 3
-
-        1. Download it from https://www.python.org/ (not the Windows store)
-
-        2. Launch the executable (defaults are okay, but choose the option to modify the PATH variable).
-
-    B.  Install needed libraries
-
-        1. svgpathtools (ref: https://github.com/mathandy/svgpathtools)
-
-            a. Prerequisites for latest release (13.3 at the time of this writing)
-
-                i.  pip install numpy
-
-                ii. pip install svgwrite
-
-            b. pip install svgpathtools
-
-II. Issues
-
-    A.  Inkscape compatibility
-
-        1.  The application was developed for an upcoming 1.0 version of Inkscape, which is in beta at the time of this writing. Unlike the previous versions, this one places the origin in the upper-left. The application doesn't support a lower-left origin.
-
-        2.  The application doesn't handle grouped paths, so they need to be ungrouped in the input file first.
-        
-        3.  The input file has to be saved as a plain svg file (not Inkscape svg format).
-        
-        4. This program currently supports only units of inches. The input document's properties for Inkscape (width, height, viewbox) aren't critical, but keep the X and Y scales equal.
-
-        To make the output file compatible with Cricut, the document properties for Inkscape will be set to:
-        
-            a.  Display units: inches
-            b.  Custom size: 11.5 x 11.5 inches
-            c.  ViewBox: 0 0 828.0 828.0 (which gives a scale of 72)
-
-    B. Running the program
-    
-        1.  Double click on the file. Since it has a pyw extension, it will not bring up a console window. If you need a console window, change the extension to py.
+See the file upc-helo-sheet.pdf for details
