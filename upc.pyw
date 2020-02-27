@@ -98,12 +98,14 @@ def main(argv):
    def InfileCallBack():
       ftypes = [('svg files','.svg'), ('All files','*')]
       inputfile = tkinter.filedialog.askopenfilename(title = "Select File", filetypes = ftypes, defaultextension='.svg')
+      E1.delete(0,tkinter.END)
       E1.insert(0, inputfile)
 
    # This is the handler for the output file browse button
    def OutfileCallBack():
       ftypes = [('svg files','.svg'), ('All files','*')]
       outputfile = tkinter.filedialog.asksaveasfilename(title = "Save File As", filetypes = ftypes, defaultextension='.svg')
+      E2.delete(0,tkinter.END)
       E2.insert(0,outputfile)
 
    # This is the handler for the cancel button
