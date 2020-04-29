@@ -574,7 +574,7 @@ def detectIntersect(x1, y1, x2, y2, x3, y3, x4, y4):
    td = (x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)
    if td == 0:
       # These line segments are parallel
-      return false
+      return False
    t = ((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/td
    if (0.0 <= t) and (t <= 1.0):
       return True
