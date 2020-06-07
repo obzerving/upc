@@ -168,18 +168,15 @@ def main(argv):
       root = tkinter.Tk()
       root.withdraw()
       messagebox.showinfo('UPC Program Info', 'Orientation of Y Axis will be Reversed', parent=root)
-      print('INFO: Orientation of Y axis is reversed')
    if inputfile == '':
       root = tkinter.Tk()
       root.withdraw()
       messagebox.showerror('UPC Input Error', 'Input File is Required', parent=root)
-      print('ERROR: Input file is required')
       sys.exit(5)
    if outputfile == '':
       root = tkinter.Tk()
       root.withdraw()
       messagebox.showerror('UPC Input Error', 'Output File is Required', parent=root)
-      print('ERROR: Output file is required')
       sys.exit(5)
    # Parse input file into paths, attributes, and svg_attributes
    ipaths, iattributes, isvg_attributes = svg2paths2(inputfile)
@@ -201,7 +198,6 @@ def main(argv):
       root = tkinter.Tk()
       root.withdraw()
       messagebox.showerror('UPC Input Error', 'The input file should contain only two paths representing the left and right sides of the profile.', parent=root)
-      print("The input file should contain only two paths representing the left and right sides of the model's profile.")
       sys.exit(3)
    ## NOTE: We are assuming that the order of nodes in one path corresponds to the same order of nodes in the other path (i.e same Y values)
    # Calculate center axis
@@ -210,7 +206,6 @@ def main(argv):
       root = tkinter.Tk()
       root.withdraw()
       messagebox.showerror('UPC Input Error', 'The order of nodes in the left hand path needs to correspond to the same order in the right hand path.', parent=root)
-      print("The order of nodes in the left hand path does not correspond to the same order in the right hand path.")
       sys.exit(4)
    if ipaths[0][0][0].real > ipaths[1][0][0].real:
       # The second path is the left hand side
@@ -223,15 +218,31 @@ def main(argv):
    dstr = ipaths[lhs].d()
    inodes = dstr.split()
    firstpoint = 0
+   pointype = "XX"
    for coord in range(len(inodes)):
-      if not((inodes[coord] == 'M') or (inodes[coord] == 'L')): ## Skip over M and L
+      if inodes[coord] == 'M': # Next two comma separted numbers are first XY point
+         pointype = 'M'
+      elif inodes[coord] == 'L': # Next two comma separted numbers are XY point to line from last point
+         pointype = 'L'
+      elif inodes[coord] == 'H': # Next number is X value of a line to last point
+         pointype = 'H'
+      elif inodes[coord] == 'V': # Next number is Y value of a line to last point
+         pointype = 'V'
+      elif inodes[coord] == 'Z': # End of path. Nothing after Z
+         pointype = 'Z'
+      else:
+         if (pointype == 'M') or (pointype == 'L'):
+            ipoint = inodes[coord].split(',')
+         elif pointype == 'H':
+            ipoint = inodes[coord]+','+inodes[coord-1].split()[1]
+         elif pointype == 'V':
+            ipoint = inodes[coord-1].split()[0]+','+inodes[coord]
          ## Find the distance between corresponding nodes and their Y position
-         ipoint = inodes[coord].split(',')
          w1 = (xcenter - float(ipoint[0])*inscale)*2.0
          y1 = float(ipoint[1])*inscale
          ## Recalculate new distance (width of one polygon side) and new Y position
          w2 = w1*math.sin(math.pi/numpoly) * (1-(numpoly%2)) + ((0.5*w1)/math.cos(math.radians((360/numpoly)/2))) * (numpoly%2)
-         if firstpoint == 0:
+         if (pointype == 'M'):
             y2 = y1
          else:
             y2 = math.sqrt((abs(w2/(2*math.tan(math.radians(180/numpoly)))-lastw2/(2*math.tan(math.radians(180/numpoly))))**2)+(abs(y1-lasty1)**2)) + (lasty2*axis)
@@ -247,7 +258,6 @@ def main(argv):
                spaths = makescore(complex(x2lhs, y2), complex(x2rhs, y2), dashlength)
                dscores.append(spaths)
          # lastly, update our state variables
-         firstpoint = 1
          lasty1 = y1
          lasty2 = y2
          lastw1 = w1
@@ -553,15 +563,12 @@ def makeTab(pt1, pt2, orient):
             rtp1y = rtp1[0][1].imag
             rtp2x = rtp2[0][1].real
             rtp2y = rtp2[0][1].imag
-      print('Testing: '+str(ppt1.real)+','+str(ppt1.imag)+' '+str(rtp1x)+','+str(rtp1y)+' '+str(rtp2x)+','+str(rtp2y)+' '+str(ppt2.real)+','+str(ppt2.imag))
       if detectIntersect(ppt1.real, ppt1.imag, rtp1x, rtp1y, ppt2.real, ppt2.imag, rtp2x, rtp2y):
-         print('Intersect: '+str(currTabAngle)+' degrees, '+str(currTabHt)+' inches, orientation '+str(orient))
          currTabAngle = currTabAngle - 1.0
          if currTabAngle < 2.0:
             currTabHt = currTabHt - 0.1
             currTabAngle = tab_angle
       else:
-         print('No Intersect: '+str(currTabAngle)+' degrees, '+str(currTabHt)+' inches, orientation '+str(orient))
          tabDone = True
    p1 = complex(rtp1x,rtp1y)
    p2 = complex(rtp2x,rtp2y)
@@ -574,7 +581,7 @@ def detectIntersect(x1, y1, x2, y2, x3, y3, x4, y4):
    td = (x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)
    if td == 0:
       # These line segments are parallel
-      return False
+      return false
    t = ((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/td
    if (0.0 <= t) and (t <= 1.0):
       return True
