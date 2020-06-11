@@ -217,7 +217,6 @@ def main(argv):
    nrhs =[]
    dstr = ipaths[lhs].d()
    inodes = dstr.split()
-   firstpoint = 0
    pointype = "XX"
    for coord in range(len(inodes)):
       if inodes[coord] == 'M': # Next two comma separted numbers are first XY point
@@ -254,7 +253,7 @@ def main(argv):
          nrhs.append(complex(x2rhs, y2))
          if nohscores == 0:
             # As long as we are here, put a score mark between the corresponding left and right points (except top and bottom)
-            if (firstpoint != 0) and (coord != (len(inodes) -1)):
+            if (pointype != "XX") and (coord != (len(inodes) -1)):
                spaths = makescore(complex(x2lhs, y2), complex(x2rhs, y2), dashlength)
                dscores.append(spaths)
          # lastly, update our state variables
